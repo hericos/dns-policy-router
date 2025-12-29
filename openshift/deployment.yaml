@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dns-policy-router-env
+data:
+  LISTEN_ADDR: ":1053"
+  ZONE: "corp.com."
+  CLUSTER_LIST: "b,aro,a"
+  UPSTREAMS: "10.10.10.10:53,10.10.10.11:53"
+  REDIS_ADDR: "redis-dns-cache:6379"
+  CACHE_MAX_TTL: "60s"
+  NEG_CACHE_TTL: "15s"
+  QUERY_TIMEOUT: "900ms"
+  ALLOW_PASSTHRU: "true"
+  LOG_DECISIONS: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dns-policy-router
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dns-policy-router
+  template:
+    metadata:
+      labels:
+        app: dns-policy-router
+    spec:
+      containers:
+        - name: dns-policy-router
+          image: dns-policy-router:latest
+          ports:
+            - name: dns-udp
+              containerPort: 1053
+              protocol: UDP
+            - name: dns-tcp
+              containerPort: 1053
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: dns-policy-router-env
+          readinessProbe:
+            tcpSocket:
+              port: 1053
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 1053
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dns-policy-router
+spec:
+  selector:
+    app: dns-policy-router
+  ports:
+    - name: dns-udp
+      port: 53
+      targetPort: 1053
+      protocol: UDP
+    - name: dns-tcp
+      port: 53
+      targetPort: 1053
+      protocol: TCP
+  type: ClusterIP

@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-dns-cache
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-dns-cache
+  template:
+    metadata:
+      labels:
+        app: redis-dns-cache
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          args: ["--save", "", "--appendonly", "no"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-dns-cache
+spec:
+  selector:
+    app: redis-dns-cache
+  ports:
+    - port: 6379
+      targetPort: 6379
+  type: ClusterIP
